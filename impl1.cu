@@ -6,18 +6,34 @@
 #include "initial_graph.hpp"
 #include "parse_graph.hpp"
 
-__global__ void pulling_kernel(std::vector<initial_vertex> * peeps, int offset, int * anyChange){
+using namespace std
 
-    //update me based on my neighbors. Toggle anyChange as needed.
-    //offset will tell you who I am.
+__global__ void edge_process(vector<initial_vertex> * neighbours, vector<int>* distance_prev, vector<int>* distance_cur, int offset, int * anyChange){
+
+	//update me based on my neighbors. Toggle anyChange as needed.
+	//offset will tell you who I am.
 }
 
-void puller(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
-    setTime();
+void swap(vector<int>* distance_cur, vector<int>* distance_prev){
+	
+}
 
-    /*
-     * Do all the things here!
-     **/
+void puller(vector<initial_vertex> * neighbours, int blockSize, int blockNum){
+	setTime();
 
-    std::cout << "Took " << getTime() << "ms.\n";
+	//housekeeping goes here
+	//populate distance_prev & distance_cur
+	
+	for(int i=0; i < peeps->size()-1; i++){
+		pulling_kernel<<<blockNum,blockSize>>>(neighbours, distance_prev, distance_cur, 0, anyChange);
+		if(anyChange[0]){
+			break;
+		} else {
+			swap(distance_cur,distance_prev)
+		}
+	}
+
+	//more housekeeping needed
+
+	cout << "Took " << getTime() << "ms.\n";
 }
