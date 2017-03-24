@@ -24,7 +24,7 @@ void puller(vector<initial_vertex> * neighbours, int blockSize, int blockNum){
 	//housekeeping goes here
 	//populate distance_prev & distance_cur
 	
-	for(int i=0; i < peeps->size()-1; i++){
+	for(int i=0; i < neighbours->size()-1; i++){
 		pulling_kernel<<<blockNum,blockSize>>>(neighbours, distance_prev, distance_cur, 0, anyChange);
 		if(anyChange[0]){
 			break;
