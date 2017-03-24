@@ -8,7 +8,7 @@
 
 using namespace std;
 
-__global__ void edge_process(vector<initial_vertex> * prev_graph, vector<int>* distance_prev, vector<int>* distance_cur, int offset, int * anyChange){
+__global__ void edge_process(vector<initial_vertex> * graph, vector<int>* distance_prev, vector<int>* distance_cur, int offset, int * anyChange){
 
 	//update me based on my neighbors. Toggle anyChange as needed.
 	//offset will tell you who I am.
