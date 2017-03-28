@@ -14,8 +14,8 @@ __global__ void edge_process(vector<edge_node>* L, vector<int>* distance_prev, v
 	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	int thread_num = blockDim.x * gridDim.x;
 
-	int warp_id = thread_id/32;
-	int warp_num = thread_num/32;
+	int warp_id = thread_id % 32 ? thread_id/32 + 1: thread_id/32;
+	int warp_num = thread_num % 32 ? thread_num/32 + 1: thread_num/32;
 	int lane_id = thread_id % 32;
 
 	load = (L.size() % warp_num == 0) ? L.size()/warp_num : L.size()/warp_num+1;
