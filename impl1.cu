@@ -5,13 +5,37 @@
 #include "cuda_error_check.cuh"
 #include "initial_graph.hpp"
 #include "parse_graph.hpp"
+#include <algorithm>
 
 using namespace std;
 
-__global__ void edge_process(vector<initial_vertex> * graph, vector<int>* distance_prev, vector<int>* distance_cur, int offset, int * anyChange){
+__global__ void edge_process(vector<edge_node>* L, vector<int>* distance_prev, vector<int>* distance_cur, int* anyChange){
 
-	//update me based on my neighbors. Toggle anyChange as needed.
-	//offset will tell you who I am.
+	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+	int thread_num = blockDim.x * gridDim.x;
+
+	int warp_id = thread_id/32;
+	int warp_num = thread_num/32;
+	int lane_id = thread_id % 32;
+
+	load = (L.size() % warp_num == 0) ? L.size()/warp_num : L.size()/warp_num+1;
+	beg = load % warp_id;
+	end = min(L.size(), beg + load);
+	beg += lane_id;
+
+	unsigned int u;
+	unsigned int v;
+	unsigned int w;
+
+	for(i = beg; i < end; i+=32){
+		u = L[i].srcIndex;
+		v = L[i].destIndex;
+		w = L[i].weight;
+		
+		if((distance_prev[u] + w) < distance_prev[v]){
+			atomicMin(&distance_cur[v], distance_prev[u] + w);
+		}
+	}
 }
 
 void swap(vector<int>* distance_cur, vector<int>* distance_prev){
@@ -22,7 +46,7 @@ void swap(vector<int>* distance_cur, vector<int>* distance_prev){
 }
 
 void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
-	//test comment	
+	
 	vector<int> hostInitDist(graph->size());
 	vector<int> * distance_cur, * distance_prev;
 	int * anyChange;
