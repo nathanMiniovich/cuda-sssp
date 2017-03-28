@@ -24,6 +24,11 @@ struct Edge{
 
 };
 
+struct edge_node{
 
+	unsigned int srcIndex;
+	unsigned int destIndex;
+	unsigned int weight;
+};
 
 #endif	//	USER_SPECIFIED_STRUCTURES_H
