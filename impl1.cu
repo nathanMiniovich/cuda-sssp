@@ -22,7 +22,7 @@ void swap(vector<int>* distance_cur, vector<int>* distance_prev){
 }
 
 void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
-	
+	//test comment	
 	vector<int> hostInitDist(graph->size());
 	vector<int> * distance_cur, * distance_prev;
 	int * anyChange;
