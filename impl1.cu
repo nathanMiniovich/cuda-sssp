@@ -31,7 +31,6 @@ __global__ void edge_process(vector<edge_node>* L, vector<int>* distance_prev, v
 		u = L[i].srcIndex;
 		v = L[i].destIndex;
 		w = L[i].weight;
-		
 		if((distance_prev[u] + w) < distance_prev[v]){
 			atomicMin(&distance_cur[v], distance_prev[u] + w);
 		}
