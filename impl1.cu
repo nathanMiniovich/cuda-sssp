@@ -10,7 +10,9 @@
 
 using namespace std;
 
-__global__ void edge_process(edge_node *L, int edge_num, unsigned int *distance_prev, unsigned int *distance_cur, int* anyChange){
+__global__ void edge_process(const edge_node *L, const unsigned int edge_num, unsigned int *distance_prev, unsigned int *distance_cur, int* anyChange){
+	
+	printf("Entered kernel...\n");
 
 	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	int thread_num = blockDim.x * gridDim.x;
@@ -28,6 +30,8 @@ __global__ void edge_process(edge_node *L, int edge_num, unsigned int *distance_
 	unsigned int v;
 	unsigned int w;
 
+	printf("Begin for-loop...\n");
+
 	for(int i = beg; i < end; i+=32){
 		u = L[i].srcIndex;
 		v = L[i].destIndex;
@@ -35,7 +39,7 @@ __global__ void edge_process(edge_node *L, int edge_num, unsigned int *distance_
 		if(distance_prev[u] != UINT_MAX){
 		    if((distance_prev[u] + w) < distance_prev[v]){
 			if(distance_prev[u] + w < distance_cur[v]){
-			    *anyChange = 1;
+			    anyChange[0] = 1;
 			}
 			atomicMin(&distance_cur[v], distance_prev[u] + w);
 		    }
@@ -43,29 +47,37 @@ __global__ void edge_process(edge_node *L, int edge_num, unsigned int *distance_
 	}
 }
 
-int pull_edges(vector<initial_vertex>& graph, edge_node* edge_list){
 
-	unsigned int edge_num;
+unsigned int count_edges(vector<initial_vertex>& graph){
 
-	edge_num = 0;
+	unsigned edge_num = 0;
 
 	for(int i = 0 ; i < graph.size() ; i++){
 	    edge_num += graph[i].nbrs.size();
 	}
 
-	edge_list = (edge_node*)malloc(sizeof(edge_node)*edge_num);
-
-	for(int i = 0 ; i < graph.size() ; i++){
-	    for(int j = 0 ; j < graph[i].nbrs.size() ; j++){
-		edge_list[i].srcIndex = i;
-		edge_list[i].destIndex = graph[i].nbrs[j].srcIndex;
-		edge_list[i].weight = graph[i].nbrs[j].edgeValue.weight;
-	    }
-	}
 	return edge_num;
 }
 
+void pull_edges(vector<initial_vertex>& graph, edge_node* edge_list, unsigned int edge_num){
+
+	unsigned int k = 0;
+
+	for(int i = 0 ; i < graph.size() ; i++){
+	    for(int j = 0 ; j < graph[i].nbrs.size() ; j++, k++){
+		edge_list[k].srcIndex = i;
+		edge_list[k].destIndex = graph[i].nbrs[j].srcIndex;
+		edge_list[k].weight = graph[i].nbrs[j].edgeValue.weight;
+	    }
+	}
+
+	if( k != edge_num )
+	    printf("ERROR: Edge numbers don't match up\n");
+}
+
 void pull_distances(unsigned int* dist_arr, int size){
+
+	dist_arr[0] = 0;
 
 	for(int i = 1; i < size; i++){
 	    dist_arr[i] = UINT_MAX; 
@@ -73,14 +85,20 @@ void pull_distances(unsigned int* dist_arr, int size){
 }
 
 void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
+
+	printf("Entered puller...\n");
 	
 	unsigned int *initDist, *distance_cur, *distance_prev; 
 	int *anyChange;
 	edge_node *edge_list, *L;
-
+	unsigned int edge_num;
+	
+	edge_num = count_edges(*graph);
+	printf("edge_num is %u\n", edge_num);
+	edge_list = (edge_node*) malloc(sizeof(edge_node)*edge_num);
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
-	int edge_num = pull_edges(*graph, edge_list);
+	pull_edges(*graph, edge_list, edge_num);
 
 	cudaMalloc((void**)&distance_cur, (size_t)sizeof(unsigned int)*(graph->size()));
 	cudaMalloc((void**)&distance_prev, (size_t)sizeof(unsigned int)*(graph->size()));
@@ -95,8 +113,13 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
 
 	setTime();
 
-	for(int i=0; i < graph->size()-1; i++){
+	printf("Entering kernel...\n");
+	printf("Graph size of %d\n", (int) graph->size() - 1);
+
+	for(int i=0; i < ((int) graph->size())-1; i++){
+		printf("Iteration number\n" );
 		edge_process<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange);
+		printf("After edge_process");
 		if(!anyChange[0]){
 			break;
 		} else {
@@ -106,6 +129,13 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
 	}
 
 	//more housekeeping needed
+	cudaFree(distance_cur);
+	cudaFree(distance_prev);
+	cudaFree(anyChange);
+	cudaFree(L);
+	
+	free(initDist);
+	free(edge_list);
 
 	cout << "Took " << getTime() << "ms.\n";
 
