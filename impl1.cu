@@ -12,8 +12,6 @@ using namespace std;
 
 __global__ void edge_process(const edge_node *L, const unsigned int edge_num, unsigned int *distance_prev, unsigned int *distance_cur, int* anyChange){
 	
-	printf("Entered kernel...\n");
-
 	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	int thread_num = blockDim.x * gridDim.x;
 
@@ -29,8 +27,6 @@ __global__ void edge_process(const edge_node *L, const unsigned int edge_num, un
 	unsigned int u;
 	unsigned int v;
 	unsigned int w;
-
-	printf("Begin for-loop...\n");
 
 	for(int i = beg; i < end; i+=32){
 		u = L[i].srcIndex;
@@ -50,7 +46,7 @@ __global__ void edge_process(const edge_node *L, const unsigned int edge_num, un
 
 unsigned int count_edges(vector<initial_vertex>& graph){
 
-	unsigned edge_num = 0;
+	unsigned int edge_num = 0;
 
 	for(int i = 0 ; i < graph.size() ; i++){
 	    edge_num += graph[i].nbrs.size();
@@ -86,15 +82,13 @@ void pull_distances(unsigned int* dist_arr, int size){
 
 void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
 
-	printf("Entered puller...\n");
-	
 	unsigned int *initDist, *distance_cur, *distance_prev; 
 	int *anyChange;
+	int *hostAnyChange = (int*)malloc(sizeof(int));
 	edge_node *edge_list, *L;
 	unsigned int edge_num;
 	
 	edge_num = count_edges(*graph);
-	printf("edge_num is %u\n", edge_num);
 	edge_list = (edge_node*) malloc(sizeof(edge_node)*edge_num);
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
@@ -113,14 +107,10 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum){
 
 	setTime();
 
-	printf("Entering kernel...\n");
-	printf("Graph size of %d\n", (int) graph->size() - 1);
-
 	for(int i=0; i < ((int) graph->size())-1; i++){
-		printf("Iteration number\n" );
 		edge_process<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange);
-		printf("After edge_process");
-		if(!anyChange[0]){
+		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
+		if(!hostAnyChange[0]){
 			break;
 		} else {
 			cudaMemset(anyChange, 0, (size_t)sizeof(int));
