@@ -128,45 +128,41 @@ int main( int argc, char** argv )
 				else if ( !strcmp(argv[iii+1], "opt") )
 				    processingMethod = ProcessingType::Own;
 				else{
-           std::cerr << "\n Un-recognized method parameter value \n\n";
-           exit;
-         }   
-			}
-			else if ( !strcmp(argv[iii], "--sync") && iii != argc-1 ) {
-				if ( !strcmp(argv[iii+1], "incore") )
+           				std::cerr << "\n Un-recognized method parameter value \n\n";
+           				exit;
+         			}   
+			} else if ( !strcmp(argv[iii], "--sync") && iii != argc-1 ) {
+				if ( !strcmp(argv[iii+1], "incore") ){
 				        syncMethod = InCore;
-				if ( !strcmp(argv[iii+1], "outcore") )
+				} else if ( !strcmp(argv[iii+1], "outcore") ){
     				        syncMethod = OutOfCore;
-				else{
-           std::cerr << "\n Un-recognized sync parameter value \n\n";
-           exit;
-         }  
-
-			}
-			else if ( !strcmp(argv[iii], "--usesmem") && iii != argc-1 ) {
-				if ( !strcmp(argv[iii+1], "yes") )
+				} else {
+           				std::cerr << "\n Un-recognized sync parameter value \n\n";
+           				exit;
+        		 	}  
+			} else if ( !strcmp(argv[iii], "--usesmem") && iii != argc-1 ) {
+				if ( !strcmp(argv[iii+1], "yes") ){
 				        smemMethod = UseSmem;
-				if ( !strcmp(argv[iii+1], "no") )
+				} else if ( !strcmp(argv[iii+1], "no") ){
     				        smemMethod = UseNoSmem;
-        else{
-           std::cerr << "\n Un-recognized usesmem parameter value \n\n";
-           exit;
-         }  
-			}
-			else if( !strcmp( argv[iii], "--input" ) && iii != argc-1 /*is not the last one*/)
+				} else{
+           				std::cerr << "\n Un-recognized usesmem parameter value \n\n";
+           				exit;
+         			}  
+			} else if( !strcmp( argv[iii], "--input" ) && iii != argc-1 /*is not the last one*/){
 				openFileToAccess< std::ifstream >( inputFile, std::string( argv[iii+1] ) );
-			else if( !strcmp( argv[iii], "--output" ) && iii != argc-1 /*is not the last one*/){
+			} else if( !strcmp( argv[iii], "--output" ) && iii != argc-1 /*is not the last one*/){
 				openFileToAccess< std::ofstream >( outputFile, std::string( argv[iii+1] ) );
 				outputFileName = std::string(argv[iii+1]);
-			}
-			else if( !strcmp( argv[iii], "--bsize" ) && iii != argc-1 /*is not the last one*/)
+			} else if( !strcmp( argv[iii], "--bsize" ) && iii != argc-1 /*is not the last one*/){
 				bsize = std::atoi( argv[iii+1] );
-			else if( !strcmp( argv[iii], "--bcount" ) && iii != argc-1 /*is not the last one*/)
+			} else if( !strcmp( argv[iii], "--bcount" ) && iii != argc-1 /*is not the last one*/){
 				bcount = std::atoi( argv[iii+1] );
+			}
 
 		if(bsize <= 0 || bcount <= 0){
 			std::cerr << "Usage: " << usage;
-      exit;
+			exit;
 			throw std::runtime_error("\nAn initialization error happened.\nExiting.");
 		}
 		if( !inputFile.is_open() || processingMethod == ProcessingType::Unknown ) {
@@ -205,7 +201,7 @@ int main( int argc, char** argv )
 			if(syncMethod == OutOfCore){
 				puller(&parsedGraph, bsize, bcount, outputFile);
 			} else if(syncMethod == InCore){
-				//call incore function
+				puller_incore(&parsedGraph, bsize, bcount, outputFile);
 			} else {
 				cout << "syncMethod not specified" << endl;
 				exit(0);
