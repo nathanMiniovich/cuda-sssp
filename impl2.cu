@@ -75,6 +75,30 @@ __global__ void getY(unsigned int *X){
 
 __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned int *pred, unsigned int *Y, edge_node *T){
     // fill here
+    int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+    int thread_num = blockDim.x * gridDim.x;
+
+    int warp_id = thread_id/32;
+    int warp_num = (thread_num % 32 == 0) ? thread_num/32 : edge_num/32 + 1;
+    int lane_id = thread_id % 32;
+
+    // how many edges each warp takes
+    int load = (edge_num % warp_num == 0) ? edge_num/warp_num : edge_num/warp_num+1;
+    int beg = load * warp_id;
+    int end = min(edge_num, beg+ load);
+    beg += lane_id;
+    int cur_offset = Y[warp_id];
+    int loop_iter = 1;
+    
+    for(int i = beg; i < end; i+=32){
+	int mask = __ballot(pred[L[i].srcIndex]);
+	int local_id = __popc(mask << (32 - 1) - lane_id) - 1;
+	T[cur_offset+local_id].srcIndex = Y[i].srcIndex;
+	T[cur_offset+local_id].destIndex = Y[i].destIndex;
+	T[cur_offset+local_id].weight = Y[i].weight;
+	curr_offset += __popc(mask);
+    }
+
 }
 
 void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
@@ -88,7 +112,14 @@ void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blo
     
     setTime();
     getX<<blockNum, blockSize>>(L, edge_num, pred, to_process);
+    /* pseudo code
+    int num_to_process = to_process[warp_num - 1];
+    */
     getY<<1, warp_num>>(to_process);
+    /*
+    num_to_process += to_process[warp_num - 1];
+    create T
+    */
     std::cout << "Filtering Stage Took " << getTime() << "ms.\n";
 
 
