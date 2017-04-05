@@ -28,6 +28,63 @@ void openFileToAccess( T_file& input_file, std::string file_name ) {
 		throw std::runtime_error( "Failed to open specified file: " + file_name + "\n" );
 }
 
+void testCorrectness(edge_node *edges, const char* outputFileName, uint nVertices, uint nEdges) {
+	
+	std::cout << std::endl << "TESTING CORRECTNESS" << std::endl;
+	std::cout << "RUNNING SEQUENTIAL BMF..." << std::endl;
+	
+	unsigned int *d= new unsigned int[nVertices];
+	
+	d[0]=0;
+	for (int i = 1; i < nVertices; ++i){
+		d[i] = UINT_MAX;
+	}
+
+	int change = 0;
+	for(int i = 1; i < nVertices; i++){
+		for(int j = 0; j < nEdges; j++){
+			int u = edges[j].srcIndex;
+			int v = edges[j].destIndex;
+			int w = edges[j].weight;
+			if(d[u] == UINT_MAX){
+				continue;
+			} else if(d[u]+w < d[v]){
+				d[v] = d[u]+w;
+				change = 1;
+			}
+		}
+		if(!change){
+			break;
+		}
+		change = 0;
+	}
+	
+	//Compare the distance array and the parallel output file
+	std::ifstream outputFile;
+	openFileToAccess< std::ifstream >( outputFile, std::string( outputFileName ) );
+
+	std::string line;
+	int i = 0;
+	int incorrect = 0;
+	while (getline(outputFile,line)) {
+		std::string curr = (d[i] < UINT_MAX) ? (std::to_string(i) + ":" + std::to_string(d[i])):(std::to_string(i) +":" + "4294967295");
+
+		// std::cout << std::to_string(line.compare(curr)) << std::endl;
+
+		if(line.compare(curr) != 0) {
+			incorrect++;
+			std::cout << "Correct: " << curr << "\tYours: " << line << std::endl;
+		}
+		i++;
+	}
+	if(i != nVertices) {
+		std::cout << "Insufficient vertices found in outputfile" << std::endl;
+		std::cout << "Expected: " << nVertices << "Found: " << i << std::endl;
+		return;
+	}
+	std::cout << "Correct: " << std::to_string(nVertices-incorrect) << "\t Incorrect: " << std::to_string(incorrect) << " \t Total: " << std::to_string(nVertices) << std::endl;
+	outputFile.close();
+}
 
 // Execution entry point.
 int main( int argc, char** argv )
@@ -47,6 +104,7 @@ int main( int argc, char** argv )
 
 		std::ifstream inputFile;
 		std::ofstream outputFile;
+		std::string outputFileName;
 		int selectedDevice = 0;
 		int bsize = 0, bcount = 0;
 		int vwsize = 32;
@@ -97,8 +155,10 @@ int main( int argc, char** argv )
 			}
 			else if( !strcmp( argv[iii], "--input" ) && iii != argc-1 /*is not the last one*/)
 				openFileToAccess< std::ifstream >( inputFile, std::string( argv[iii+1] ) );
-			else if( !strcmp( argv[iii], "--output" ) && iii != argc-1 /*is not the last one*/)
+			else if( !strcmp( argv[iii], "--output" ) && iii != argc-1 /*is not the last one*/){
 				openFileToAccess< std::ofstream >( outputFile, std::string( argv[iii+1] ) );
+				outputFileName = std::string(argv[iii+1]);
+			}
 			else if( !strcmp( argv[iii], "--bsize" ) && iii != argc-1 /*is not the last one*/)
 				bsize = std::atoi( argv[iii+1] );
 			else if( !strcmp( argv[iii], "--bcount" ) && iii != argc-1 /*is not the last one*/)
@@ -113,8 +173,10 @@ int main( int argc, char** argv )
 			std::cerr << "Usage: " << usage;
 			throw std::runtime_error( "\nAn initialization error happened.\nExiting." );
 		}
-		if( !outputFile.is_open() )
+		if( !outputFile.is_open() ){
 			openFileToAccess< std::ofstream >( outputFile, "out.txt" );
+			outputFileName = "out.txt";
+		}
 		CUDAErrorCheck( cudaSetDevice( selectedDevice ) );
 		std::cout << "Device with ID " << selectedDevice << " is selected to process the graph.\n";
 
@@ -152,7 +214,9 @@ int main( int argc, char** argv )
 		/********************************
 		 * It's done here.
 		 ********************************/
-
+		edge_node *testEdgeList = new edge_node[nEdges];
+		pull_edges(parsedGraph, testEdgeList, nEdges);
+		testCorrectness(testEdgeList, outputFileName.c_str(), parsedGraph.size(), nEdges);
 		CUDAErrorCheck( cudaDeviceReset() );
 		std::cout << "Done.\n";
 		return( EXIT_SUCCESS );
