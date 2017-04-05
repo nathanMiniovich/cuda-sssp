@@ -48,14 +48,16 @@ __global__ void getY(unsigned int *X, unsigned int *Y){
 }
 
 void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
-    setTime();
 
     /*
      * Do all the things here!
      *
      */
 
+    setTime();
+    getX<<blockNum, blockSize>>(L, edge_num, prex, X);
+    getY<<1, (blockNum*blockSize)/32>>(X,Y);
+    std::cout << "Filtering Stage Took " << getTime() << "ms.\n";
 
 
-    std::cout << "Took " << getTime() << "ms.\n";
 }
