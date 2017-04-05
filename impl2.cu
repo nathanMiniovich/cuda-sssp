@@ -13,8 +13,6 @@ __global__ void neighborHandling_kernel(std::vector<initial_vertex> * peeps, int
     //Offset will tell you who I am.
 }
 
-        
-// step 1
 __global__ void getX(const edge_node *L, const unsigned int edge_num, unsigned int *pred, unsigned int *X){
     
     int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -43,8 +41,40 @@ __global__ void getX(const edge_node *L, const unsigned int edge_num, unsigned i
     }
 }
 
-__global__ void getY(unsigned int *X, unsigned int *Y){
+__global__ void getY(unsigned int *X){
+   
+    int n = blockDim.x;
+    int thid = threadIdx.x;
+    int offset = 1;
 
+    for(int d = n >> 1; d > 0; d >>= 1){
+	__syncthreads();
+	if( thid < d ){
+	    int ai = offset*(2*thid+1)-1;
+	    int bi = offset*(2*thid+2)-1;
+	    X[bi] += X[ai];
+	}
+	offset *= 2;
+    }
+    
+    if( thid == 0) { X[n-1] = 0; }
+
+    for(int d = 1 ; d < n ; d *= 2){
+	offset >>= 1;
+	__syncthreads();
+	if( thid < d ){
+	    int ai = offset*(2*thid+1)-1;
+	    int bi = offset*(2*thid+2)-1;
+	    int t = X[ai];
+	    X[ai] = X[bi];
+	    X[bi] += t;
+	}
+    }
+    __syncthreads();
+}
+
+__global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned int *pred, unsigned int *Y, edge_node *T){
+    // fill here
 }
 
 void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
@@ -54,9 +84,11 @@ void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blo
      *
      */
 
+    int warp_num = (thread_num % 32 == 0) ? thread_num/32 : edge_num/32 + 1;
+    
     setTime();
-    getX<<blockNum, blockSize>>(L, edge_num, prex, X);
-    getY<<1, (blockNum*blockSize)/32>>(X,Y);
+    getX<<blockNum, blockSize>>(L, edge_num, pred, to_process);
+    getY<<1, warp_num>>(to_process);
     std::cout << "Filtering Stage Took " << getTime() << "ms.\n";
 
 
