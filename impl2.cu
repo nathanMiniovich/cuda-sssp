@@ -6,6 +6,38 @@
 #include "initial_graph.hpp"
 #include "parse_graph.hpp"
 
+__global__ void edge_process_incore(const edge_node *L, const unsigned int edge_num, unsigned int *distance, int *anyChange, unsigned int *pred){
+
+	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+	int thread_num = blockDim.x * gridDim.x;
+
+	int warp_id = thread_id/32;
+	int warp_num = thread_num % 32 ? thread_num/32 + 1 : thread_num/32;
+	int lane_id = thread_id % 32;
+
+	int load = (edge_num % warp_num == 0) ? edge_num/warp_num : edge_num/warp_num+1;
+	int beg = load * warp_id;
+	int end = min(edge_num, beg + load);
+	beg += lane_id;
+
+	unsigned int u;
+	unsigned int v;
+	unsigned int w;
+
+	for(int i = beg; i < end; i+=32){
+		u = L[i].srcIndex;
+		v = L[i].destIndex;
+		w = L[i].weight;
+		int dist = distance[u] + w;
+		if(distance[u] == UINT_MAX){
+			continue;
+		} else if(dist < distance[v]){
+			anyChange[0] = 1;
+			pred[L[i].srcIndex] = 1
+			atomicMin(&distance[v], dist);
+		}
+	}
+}
 __global__ void neighborHandling_kernel(std::vector<initial_vertex> * peeps, int offset, int * anyChange){
 
     //update me based on my neighbors. Toggle anyChange as needed.
@@ -95,9 +127,7 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
     for(int i = beg; i < end; i+=32){
 	int mask = __ballot(pred[L[i].srcIndex]);
 	int local_id = __popc(mask << (32 - 1) - lane_id) - 1;
-	T[cur_offset+local_id].srcIndex = Y[i].srcIndex;
-	T[cur_offset+local_id].destIndex = Y[i].destIndex;
-	T[cur_offset+local_id].weight = Y[i].weight;
+	T[cur_offset+local_id]= Y[i];
 	curr_offset += __popc(mask);
     }
 
@@ -109,7 +139,7 @@ void to_process_incore(vector<initial_vertex> * graph, int blockSize, int blockN
 	int *anyChange;
 	int *hostAnyChange = (int*)malloc(sizeof(int));
 	edge_node *edge_list, *L, *T;
-	unsigned int edge_num;
+	unsigned int edge_num, to_process_num;
 	int warp_num = (thread_num % 32 == 0) ? thread_num/32 : edge_num/32 + 1;
 	
 	edge_num = count_edges(*graph);
@@ -140,19 +170,34 @@ void to_process_incore(vector<initial_vertex> * graph, int blockSize, int blockN
 		if( i == 0 ){
 		    edge_process_incore<<<blockNum,blockSize>>>(L, edge_num, distance, anyChange, pred);
 		} else {
+		    cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
 		    edge_process_incore<<<blockNum, blockSize>>>(T, edge_num, distance, anyChange, pred);
+		    cudaFree(T);
 		}
 		// end compute
 		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
 		if(!hostAnyChange[0]){
-			break;
+		    break;
 		} else {
-			cudaMemset(anyChange, 0, (size_t)sizeof(int));
+		    cudaMemset(anyChange, 0, (size_t)sizeof(int));
 		}
-		// begin filter
-		getX<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr);
 
-		// end filter
+		if(i == graph->size() - 2){
+		    break;
+		} else {
+		    // begin filter
+		    cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
+
+		    getX<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr);
+		    to_process_num = to_process_arr[warp_num - 1];
+		    getY<<<1, warp_num>>>(to_process_arr);
+		    to_process_num += to_process[warp_num - 1];
+
+		    cudaMalloc((void**)&T, (size_t)sizeof(edge_node)*to_process_num);
+
+		    getT(L, edge_num, pred, to_process_arr, T);
+		    // end filter
+		}
 	}
 
 	cout << "Took " << getTime() << "ms.\n";
@@ -167,32 +212,29 @@ void to_process_incore(vector<initial_vertex> * graph, int blockSize, int blockN
 	cudaFree(distance);
 	cudaFree(anyChange);
 	cudaFree(L);
+	cudaFree(to_process_arr);
 		        
 	delete[] hostDistance;
 	free(initDist);
 	free(edge_list);
 }
 
-void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
+/*void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
 
-    /*
-     * Do all the things here!
-     *
-     */
 
     int warp_num = (thread_num % 32 == 0) ? thread_num/32 : edge_num/32 + 1;
     
     setTime();
     getX<<blockNum, blockSize>>(L, edge_num, pred, to_process);
-    /* pseudo code
+    pseudo code
     int num_to_process = to_process[warp_num - 1];
-    */
+    
     getY<<1, warp_num>>(to_process);
-    /*
+    
     num_to_process += to_process[warp_num - 1];
     create T
-    */
+    
     std::cout << "Filtering Stage Took " << getTime() << "ms.\n";
 
 
-}
+}*/
