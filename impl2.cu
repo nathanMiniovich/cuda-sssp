@@ -13,6 +13,8 @@ __global__ void neighborHandling_kernel(std::vector<initial_vertex> * peeps, int
     //Offset will tell you who I am.
 }
 
+
+
 __global__ void getX(const edge_node *L, const unsigned int edge_num, unsigned int *pred, unsigned int *X){
     
     int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
@@ -99,6 +101,76 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
 	curr_offset += __popc(mask);
     }
 
+}
+
+void to_process_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+
+	unsigned int *initDist, *distance, *to_process_arr, *pred; 
+	int *anyChange;
+	int *hostAnyChange = (int*)malloc(sizeof(int));
+	edge_node *edge_list, *L, *T;
+	unsigned int edge_num;
+	int warp_num = (thread_num % 32 == 0) ? thread_num/32 : edge_num/32 + 1;
+	
+	edge_num = count_edges(*graph);
+	edge_list = (edge_node*) malloc(sizeof(edge_node)*edge_num);
+	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
+	pull_distances(initDist, graph->size());
+	pull_edges(*graph, edge_list, edge_num);
+
+	unsigned int *hostDistanceCur = new unsigned int[graph->size()];
+
+	cudaMalloc((void**)&distance, (size_t)sizeof(unsigned int)*(graph->size()));
+	cudaMalloc((void**)&anyChange, (size_t)sizeof(int));
+	cudaMalloc((void**)&L, (size_t)sizeof(edge_node)*edge_num);
+	cudaMalloc((void**)&to_process_arr, (size_t)sizeof(unsigned int)*warp_num);
+	cudaMalloc((void**)&pred, (size_t)sizeof(unsigned int)*(graph->size()));
+
+	cudaMemcpy(distance, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
+	cudaMemcpy(L, edge_list, (size_t)sizeof(edge_node)*edge_num, cudaMemcpyHostToDevice);
+	
+	cudaMemset(anyChange, 0, (size_t)sizeof(int));
+	cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
+	cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
+
+	setTime();
+
+	for(int i=0; i < ((int) graph->size())-1; i++){
+		// begin compute
+		if( i == 0 ){
+		    edge_process_incore<<<blockNum,blockSize>>>(L, edge_num, distance, anyChange, pred);
+		} else {
+		    edge_process_incore<<<blockNum, blockSize>>>(T, edge_num, distance, anyChange, pred);
+		}
+		// end compute
+		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
+		if(!hostAnyChange[0]){
+			break;
+		} else {
+			cudaMemset(anyChange, 0, (size_t)sizeof(int));
+		}
+		// begin filter
+		getX<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr);
+
+		// end filter
+	}
+
+	cout << "Took " << getTime() << "ms.\n";
+
+	unsigned int *hostDistance = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
+	cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
+
+	for(int i=0; i < graph->size(); i++){
+		outputFile << i << ":" << hostDistance[i] << endl; 
+	}
+
+	cudaFree(distance);
+	cudaFree(anyChange);
+	cudaFree(L);
+		        
+	delete[] hostDistance;
+	free(initDist);
+	free(edge_list);
 }
 
 void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
