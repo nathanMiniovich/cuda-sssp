@@ -202,8 +202,15 @@ int main( int argc, char** argv )
 
 		switch(processingMethod){
 		case ProcessingType::Push:
-		    puller(&parsedGraph, bsize, bcount, outputFile);
-		    break;
+			if(syncMethod == OutOfCore){
+				puller(&parsedGraph, bsize, bcount, outputFile);
+			} else if(syncMethod == InCore){
+				//call incore function
+			} else {
+				cout << "syncMethod not specified" << endl;
+				exit(0);
+			}
+		    	break;
 		case ProcessingType::Neighbor:
 		    neighborHandler(&parsedGraph, bsize, bcount);
 		    break;
