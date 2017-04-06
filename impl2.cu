@@ -8,6 +8,40 @@
 
 using namespace std;
 
+// OUTCORE
+__global__ void edge_process_outcore(const edge_node *L, const unsigned int edge_num, unsigned int *distance_prev, unsigned int *distance_cur, int *anyChange, unsigned int *pred){
+	
+	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+	int thread_num = blockDim.x * gridDim.x;
+
+	int warp_id = thread_id/32;
+	int warp_num = thread_num % 32 ? thread_num/32 + 1 : thread_num/32;
+	int lane_id = thread_id % 32;
+
+	int load = (edge_num % warp_num == 0) ? edge_num/warp_num : edge_num/warp_num+1;
+	int beg = load * warp_id;
+	int end = min(edge_num, beg + load);
+	beg += lane_id;
+
+	unsigned int u;
+	unsigned int v;
+	unsigned int w;
+
+	for(int i = beg; i < end; i+=32){
+		u = L[i].srcIndex;
+		v = L[i].destIndex;
+		w = L[i].weight;
+		if(distance_prev[u] == UINT_MAX){
+			continue;
+		} else if(distance_prev[u] + w < distance_cur[v]){
+			anyChange[0] = 1;
+			pred[v] = 1;
+			atomicMin(&distance_cur[v], distance_prev[u] + w);
+		}
+	}
+}
+
+// INCORE 
 __global__ void edge_process_incore(const edge_node *L, const unsigned int edge_num, unsigned int *distance, int *anyChange, unsigned int *pred){
 
 	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
