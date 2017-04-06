@@ -189,7 +189,7 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	cudaMalloc((void**)&anyChange, (size_t)sizeof(int));
 	cudaMalloc((void**)&L, (size_t)sizeof(edge_node)*edge_num);
 	cudaMalloc((void**)&to_process_arr, (size_t)sizeof(unsigned int)*warp_num);
-	cudaMalloc((void**)&pred, (size_t)sizeof(unsigned int)*(graph->sizeo()));
+	cudaMalloc((void**)&pred, (size_t)sizeof(unsigned int)*(graph->size()));
 
 	cudaMemcpy(distance_cur, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
 	cudaMemcpy(distance_prev, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
@@ -216,9 +216,8 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 			break;
 		} else {
 			cudaMemset(anyChange, 0, (size_t)sizeof(int));
+			cudaMemcpy(distance_prev, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToDevice);
 			cudaMemcpy(hostDistanceCur, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
-			cudaMemcpy(distance_cur, distance_prev, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToDevice);
-			cudaMemcpy(distance_prev, hostDistanceCur,(sizeof(unsigned int))*(graph->size()), cudaMemcpyHostToDevice);
 		}
 
 		if(i == graph->size() - 2){
