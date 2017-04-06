@@ -75,49 +75,6 @@ __global__ void edge_process(const edge_node *L, const unsigned int edge_num, un
 	}
 }
 
-unsigned int count_edges(vector<initial_vertex>& graph){
-
-	unsigned int edge_num = 0;
-
-	for(int i = 0 ; i < graph.size() ; i++){
-	    edge_num += graph[i].nbrs.size();
-	}
-
-	return edge_num;
-}
-
-void pull_edges(vector<initial_vertex>& graph, edge_node* edge_list, unsigned int edge_num){
-
-	unsigned int k = 0;
-
-	for(int i = 0 ; i < graph.size() ; i++){
-	    for(int j = 0 ; j < graph[i].nbrs.size() ; j++, k++){
-		edge_list[k].srcIndex = graph[i].nbrs[j].srcIndex;
-		edge_list[k].destIndex = i;
-		edge_list[k].weight = graph[i].nbrs[j].edgeValue.weight;
-	    }
-	}
-
-	if( k != edge_num )
-	    printf("ERROR: Edge numbers don't match up\n");
-/*
-	for(int i = 0; i < edge_num; i++){
-		cout << "edge_list[" << i << "].srcIndex = " << edge_list[i].srcIndex << " : ";
-		cout << "edge_list[" << i << "].destIndex = " << edge_list[i].destIndex << " : ";
-		cout << "edge_list[" << i << "].weight = " << edge_list[i].weight << endl;
-	}
-*/
-}
-
-void pull_distances(unsigned int* dist_arr, int size){
-
-	dist_arr[0] = 0;
-
-	for(int i = 1; i < size; i++){
-	    dist_arr[i] = UINT_MAX; 
-	}
-}
-
 void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
 
 	unsigned int *initDist, *distance_cur, *distance_prev; 
