@@ -123,11 +123,10 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstrea
 
 	cout << "Took " << getTime() << "ms.\n";
 
-	unsigned int *hostDistanceCurr = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
-	cudaMemcpy(hostDistanceCurr, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hostDistanceCur, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
 
 	for(int i=0; i < graph->size(); i++){
-		outputFile << i << ":" << hostDistanceCurr[i] << endl; 
+		outputFile << i << ":" << hostDistanceCur[i] << endl; 
 	}
 
 	cudaFree(distance_cur);
@@ -158,15 +157,11 @@ void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	    qsort(edge_list, edge_num, sizeof(edge_node), cmp_edge);
 	}
 
-	unsigned int *hostDistanceCur = new unsigned int[graph->size()];
-
 	cudaMalloc((void**)&distance, (size_t)sizeof(unsigned int)*(graph->size()));
-	//cudaMalloc((void**)&distance_prev, (size_t)sizeof(unsigned int)*(graph->size()));
 	cudaMalloc((void**)&anyChange, (size_t)sizeof(int));
 	cudaMalloc((void**)&L, (size_t)sizeof(edge_node)*edge_num);
 
 	cudaMemcpy(distance, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
-	//cudaMemcpy(distance_prev, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
 	cudaMemcpy(L, edge_list, (size_t)sizeof(edge_node)*edge_num, cudaMemcpyHostToDevice);
 	
 	cudaMemset(anyChange, 0, (size_t)sizeof(int));
@@ -180,9 +175,6 @@ void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 			break;
 		} else {
 			cudaMemset(anyChange, 0, (size_t)sizeof(int));
-			//cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
-			//cudaMemcpy(distance_cur, distance_prev, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToDevice);
-			//cudaMemcpy(distance_prev, hostDistanceCur,(sizeof(unsigned int))*(graph->size()), cudaMemcpyHostToDevice);
 		}
 	}
 
@@ -196,7 +188,6 @@ void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	}
 
 	cudaFree(distance);
-	//cudaFree(distance_prev);
 	cudaFree(anyChange);
 	cudaFree(L);
 	
