@@ -20,4 +20,8 @@ void pull_edges(std::vector<initial_vertex>& graph, edge_node* edge_list, unsign
 
 void pull_distances(unsigned int* dist_arr, int size);
 
+int cmp_edge(const void *a, const void *b);
+
+void print_edge_list(edge_node* edge_list, unsigned int edge_num);
+
 #endif	//	PARSE_GRAPH_HPP

@@ -96,7 +96,8 @@ int main( int argc, char** argv )
                         Output path: E.g., --output output.txt\n\
 			Processing method: E.g., --method bmf (bellman-ford), or tpe (to-process-edge), or opt (one further optimizations)\n\
 			Shared memory usage: E.g., --usesmem yes, or no \n\
-			Sync method: E.g., --sync incore, or outcore\n";
+			Sync method: E.g., --sync incore, or outcore\n\
+			Sort method: E.g., --sortby src, or dest\n";
 
 	try {
 
@@ -111,6 +112,7 @@ int main( int argc, char** argv )
 		bool nonDirectedGraph = false;		// By default, the graph is directed.
 		ProcessingType processingMethod = ProcessingType::Unknown;
 		syncMethod = OutOfCore;
+		bool sortBySource = false;
 
 
 		/********************************
@@ -127,7 +129,7 @@ int main( int argc, char** argv )
 				    processingMethod = ProcessingType::Own;
 				else{
            				std::cerr << "\n Un-recognized method parameter value \n\n";
-           				exit;
+           				exit(EXIT_FAILURE);
          			}   
 			} else if ( !strcmp(argv[iii], "--sync") && iii != argc-1 ) {
 				if ( !strcmp(argv[iii+1], "incore") ){
@@ -136,7 +138,7 @@ int main( int argc, char** argv )
     				        syncMethod = OutOfCore;
 				} else {
            				std::cerr << "\n Un-recognized sync parameter value \n\n";
-           				exit;
+           				exit(EXIT_FAILURE);
         		 	}  
 			} else if ( !strcmp(argv[iii], "--usesmem") && iii != argc-1 ) {
 				if ( !strcmp(argv[iii+1], "yes") ){
@@ -145,7 +147,7 @@ int main( int argc, char** argv )
     				        smemMethod = UseNoSmem;
 				} else{
            				std::cerr << "\n Un-recognized usesmem parameter value \n\n";
-           				exit;
+           				exit(EXIT_FAILURE);
          			}  
 			} else if( !strcmp( argv[iii], "--input" ) && iii != argc-1 /*is not the last one*/){
 				openFileToAccess< std::ifstream >( inputFile, std::string( argv[iii+1] ) );
@@ -156,11 +158,20 @@ int main( int argc, char** argv )
 				bsize = std::atoi( argv[iii+1] );
 			} else if( !strcmp( argv[iii], "--bcount" ) && iii != argc-1 /*is not the last one*/){
 				bcount = std::atoi( argv[iii+1] );
+			} else if( !strcmp( argv[iii], "--sortby" ) && iii != argc-1 /*is not the last one*/){
+				if( !strcmp(argv[iii+1], "src" )){
+				    sortBySource = true;
+				} else if( !strcmp(argv[iii+1], "dest")){
+				    sortBySource = false;
+				} else {
+				    std::cerr << "\n Unrecognized sortby parameter value\n\n";
+				    exit(EXIT_FAILURE);
+				}
 			}
 
 		if(bsize <= 0 || bcount <= 0){
 			std::cerr << "Usage: " << usage;
-			exit;
+			exit(EXIT_FAILURE);
 			throw std::runtime_error("\nAn initialization error happened.\nExiting.");
 		}
 		if( !inputFile.is_open() || processingMethod == ProcessingType::Unknown ) {
@@ -197,22 +208,22 @@ int main( int argc, char** argv )
 		switch(processingMethod){
 		case ProcessingType::Push:
 			if(syncMethod == OutOfCore){
-				puller(&parsedGraph, bsize, bcount, outputFile);
+				puller(&parsedGraph, bsize, bcount, outputFile, sortBySource);
 			} else if(syncMethod == InCore){
-				puller_incore(&parsedGraph, bsize, bcount, outputFile);
+				puller_incore(&parsedGraph, bsize, bcount, outputFile, sortBySource);
 			} else {
 				cout << "syncMethod not specified" << endl;
-				exit(0);
+				exit(EXIT_FAILURE);
 			}
 		    	break;
 		case ProcessingType::Neighbor:
 			if(syncMethod == OutOfCore){
-				impl2_outcore(&parsedGraph, bsize, bcount, outputFile);    
+				impl2_outcore(&parsedGraph, bsize, bcount, outputFile, sortBySource);    
 			} else if(syncMethod == InCore){
-			    impl2_incore(&parsedGraph, bsize, bcount, outputFile);
+			    impl2_incore(&parsedGraph, bsize, bcount, outputFile, sortBySource);
 			} else {
 				cout << "syncMethod not specified" << endl;
-				exit(0);
+				exit(EXIT_FAILURE);
 			}
 		    break;
 		default:
