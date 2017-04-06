@@ -42,14 +42,6 @@ __global__ void edge_process_incore(const edge_node *L, const unsigned int edge_
 		}
 	}
 }
-__global__ void neighborHandling_kernel(std::vector<initial_vertex> * peeps, int offset, int * anyChange){
-
-    //update me based on my neighbors. Toggle anyChange as needed.
-    //Enqueue and dequeue me as needed.
-    //Offset will tell you who I am.
-}
-
-
 
 __global__ void getX(const edge_node *L, const unsigned int edge_num, unsigned int *pred, unsigned int *X){
     
@@ -184,7 +176,7 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 		    cudaFree(T);
 
 		}
-		cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
+		//cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
 		// delete later
 		//printf("hostDistance: %u %u %u %u %u %u %u\n",hostDistance[0], hostDistance[1], hostDistance[2], hostDistance[3], hostDistance[4], hostDistance[5], hostDistance[6]);
 		// delete later
@@ -245,22 +237,3 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 	free(edge_list);
 }
 
-/*void neighborHandler(std::vector<initial_vertex> * peeps, int blockSize, int blockNum){
-
-
-    int warp_num = (thread_num % 32 == 0) ? thread_num/32 : edge_num/32 + 1;
-    
-    setTime();
-    getX<<blockNum, blockSize>>(L, edge_num, pred, to_process);
-    pseudo code
-    int num_to_process = to_process[warp_num - 1];
-    
-    getY<<1, warp_num>>(to_process);
-    
-    num_to_process += to_process[warp_num - 1];
-    create T
-    
-    std::cout << "Filtering Stage Took " << getTime() << "ms.\n";
-
-
-}*/
