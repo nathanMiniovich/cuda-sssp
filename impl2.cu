@@ -1,5 +1,6 @@
 #include <vector>
 #include <iostream>
+#include <sys/time.h>
 
 #include "utils.h"
 #include "cuda_error_check.cuh"
@@ -167,6 +168,10 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
 // OUTCORE
 void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
 
+	double t_filter, t_comp;
+	t_filter = 0;
+	t_comp = 0;
+
 	unsigned int *initDist, *distance_cur, *distance_prev, *to_process_arr, *pred; 
 	int *anyChange;
 	int *hostAnyChange = (int*)malloc(sizeof(int));
@@ -199,20 +204,26 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
 	cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
 
-	setTime();
-
 	for(int i=0; i < ((int) graph->size())-1; i++){
-		
+
+		setTime();
+
 		if(i == 0){
 		    edge_process_outcore<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange, pred);
+		    cudaDeviceSynchronize();
 		} else {
 		    cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
 		    edge_process_outcore<<<blockNum,blockSize>>>(T, to_process_num, distance_prev, distance_cur, anyChange, pred);
+		    cudaDeviceSynchronize();
 		    cudaFree(T);
 		}
 
+		t_comp += getTime();
+
 		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
+
 		if(!hostAnyChange[0]){
+		    printf("breaks\n");
 			break;
 		} else {
 			cudaMemset(anyChange, 0, (size_t)sizeof(int));
@@ -223,21 +234,34 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 		if(i == graph->size() - 2){
 		    break;
 		} else {
+
+		    setTime();
+
 		    cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
+
 		    getX<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr);
+		    cudaDeviceSynchronize();
+
 		    cudaMemcpy(temp, to_process_arr + warp_num - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+
 		    to_process_num = *temp;
+
 		    getY<<<1, warp_num>>>(to_process_arr);
+		    cudaDeviceSynchronize();
+
 		    cudaMemcpy(temp, to_process_arr + warp_num - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		    to_process_num += *temp;
 
 		    cudaMalloc((void**)&T, (size_t)sizeof(edge_node)*to_process_num);
-
+		    
 		    getT<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr, T);
+		    cudaDeviceSynchronize();
+
+		    t_filter += getTime();
 		}
 	}
 
-	cout << "Took " << getTime() << "ms.\n";
+	printf("Computation Time: %f micro-seconds\nFiltering Time: %f micro-seconds\n", t_comp, t_filter);
 
 	unsigned int *hostDistanceCurr = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
 	cudaMemcpy(hostDistanceCurr, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
@@ -294,7 +318,7 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 
 	unsigned int *hostDistance = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
 	for(int i=0; i < ((int) graph->size())-1; i++){
-		//printf("iteration number %d\n", i);
+		printf("iteration number %d\n", i);
 		// begin compute
 		if( i == 0 ){
 		    edge_process_incore<<<blockNum,blockSize>>>(L, edge_num, distance, anyChange, pred);
