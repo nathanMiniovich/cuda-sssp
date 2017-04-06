@@ -261,7 +261,7 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 		}
 	}
 
-	printf("Computation Time: %f micro-seconds\nFiltering Time: %f micro-seconds\n", t_comp, t_filter);
+	printf("Computation Time: %f ms\nFiltering Time: %f ms\n", t_comp, t_filter);
 
 	unsigned int *hostDistanceCurr = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
 	cudaMemcpy(hostDistanceCurr, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
