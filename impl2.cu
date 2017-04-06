@@ -167,13 +167,16 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
 // OUTCORE
 void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
 
-	unsigned int *initDist, *distance_cur, *distance_prev; 
+	unsigned int *initDist, *distance_cur, *distance_prev, *to_process_arr, *pred; 
 	int *anyChange;
 	int *hostAnyChange = (int*)malloc(sizeof(int));
-	edge_node *edge_list, *L;
-	unsigned int edge_num;
+	edge_node *edge_list, *L, *T;
+	unsigned int edge_num, to_process_num;
+	unsigned int *temp = (unsigned int*)malloc(sizeof(unsigned int));
 	
+	int thread_num = blockSize * blockNum;
 	edge_num = count_edges(*graph);
+	int warp_num = (thread_num % 32 == 0) ? thread_num/32 : thread_num/32 + 1;
 	edge_list = (edge_node*) malloc(sizeof(edge_node)*edge_num);
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
@@ -185,17 +188,29 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	cudaMalloc((void**)&distance_prev, (size_t)sizeof(unsigned int)*(graph->size()));
 	cudaMalloc((void**)&anyChange, (size_t)sizeof(int));
 	cudaMalloc((void**)&L, (size_t)sizeof(edge_node)*edge_num);
+	cudaMalloc((void**)&to_process_arr, (size_t)sizeof(unsigned int)*warp_num);
+	cudaMalloc((void**)&pred, (size_t)sizeof(unsigned int)*(graph->sizeo()));
 
 	cudaMemcpy(distance_cur, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
 	cudaMemcpy(distance_prev, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
 	cudaMemcpy(L, edge_list, (size_t)sizeof(edge_node)*edge_num, cudaMemcpyHostToDevice);
 	
 	cudaMemset(anyChange, 0, (size_t)sizeof(int));
+	cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
+	cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
 
 	setTime();
 
 	for(int i=0; i < ((int) graph->size())-1; i++){
-		edge_process<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange);
+		
+		if(i == 0){
+		    edge_process_outcore<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange, pred);
+		} else {
+		    cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
+		    edge_process_outcore<<<blockNum,blockSize>>>(T, to_process_num, distance_prev, distance_cur, anyChange, pred);
+		    cudaFree(T);
+		}
+
 		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
 		if(!hostAnyChange[0]){
 			break;
@@ -204,6 +219,22 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 			cudaMemcpy(hostDistanceCur, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
 			cudaMemcpy(distance_cur, distance_prev, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToDevice);
 			cudaMemcpy(distance_prev, hostDistanceCur,(sizeof(unsigned int))*(graph->size()), cudaMemcpyHostToDevice);
+		}
+
+		if(i == graph->size() - 2){
+		    break;
+		} else {
+		    cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
+		    getX<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr);
+		    cudaMemcpy(temp, to_process_arr + warp_num - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+		    to_process_num = *temp;
+		    getY<<<1, warp_num>>>(to_process_arr);
+		    cudaMemcpy(temp, to_process_arr + warp_num - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+		    to_process_num += *temp;
+
+		    cudaMalloc((void**)&T, (size_t)sizeof(edge_node)*to_process_num);
+
+		    getT<<<blockNum, blockSize>>>(L, edge_num, pred, to_process_arr, T);
 		}
 	}
 
