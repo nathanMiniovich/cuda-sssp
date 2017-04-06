@@ -206,7 +206,14 @@ int main( int argc, char** argv )
 			}
 		    	break;
 		case ProcessingType::Neighbor:
-		    impl2_incore(&parsedGraph, bsize, bcount, outputFile);
+			if(syncMethod == OutOfCore){
+				impl2_outcore(&parsedGraph, bsize, bcount, outputFile);    
+			} else if(syncMethod == InCore){
+			    impl2_incore(&parsedGraph, bsize, bcount, outputFile);
+			} else {
+				cout << "syncMethod not specified" << endl;
+				exit(0);
+			}
 		    break;
 		default:
 		    own(&parsedGraph, bsize, bcount);
