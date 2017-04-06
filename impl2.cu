@@ -165,7 +165,7 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
 }
 
 // OUTCORE
-void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
 
 	unsigned int *initDist, *distance_cur, *distance_prev; 
 	int *anyChange;
