@@ -284,6 +284,10 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 // INCORE
 void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
 
+	double t_filter, t_comp;
+	comp_time = 0;
+	filter_time = 0;
+
 	unsigned int *initDist, *distance, *to_process_arr, *pred; 
 	int *anyChange;
 	int *hostAnyChange = (int*)malloc(sizeof(int));
@@ -314,11 +318,12 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 	cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
 	cudaMemset(pred, 0, (size_t)sizeof(unsigned int)*(graph->size()));
 
-	setTime();
-
 	unsigned int *hostDistance = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
 	for(int i=0; i < ((int) graph->size())-1; i++){
-		printf("iteration number %d\n", i);
+		
+		setTime();
+
+		//printf("iteration number %d\n", i);
 		// begin compute
 		if( i == 0 ){
 		    edge_process_incore<<<blockNum,blockSize>>>(L, edge_num, distance, anyChange, pred);
@@ -328,6 +333,9 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 		    cudaFree(T);
 
 		}
+
+		t_comp += getTime();
+
 		//cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
 		// delete later
 		//printf("hostDistance: %u %u %u %u %u %u %u\n",hostDistance[0], hostDistance[1], hostDistance[2], hostDistance[3], hostDistance[4], hostDistance[5], hostDistance[6]);
@@ -344,6 +352,8 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 		    //printf("got to source %s line %d\n", __FILE__, __LINE__);
 		    break;
 		} else {
+
+		    startTime();
 
 		    // begin filter
 		    cudaMemset(to_process_arr, 0, (size_t)sizeof(unsigned int)*warp_num);
@@ -367,10 +377,12 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 			printf("src.Index %u dest.Index %u\n", hostCheckT[z].srcIndex, hostCheckT[z].destIndex);
 		    }*/
 		    // end filter
+
+		    t_filter += getTime();
 		}
 	}
 
-	cout << "Took " << getTime() << "ms.\n";
+	printf("Computation Time: %f ms\nFiltering Time ms: %f\n", t_comp, t_filter);
 
 	//unsigned int *hostDistance = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
 	cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
