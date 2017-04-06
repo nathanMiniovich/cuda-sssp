@@ -44,6 +44,17 @@ void pull_distances(unsigned int* dist_arr, int size){
 	}
 }
 
+int cmp_edge(const void *a, const void *b){
+	
+	return ( (int)(((edge_node *)a)->srcIndex) - (int)(((edge_node *)b)->srcIndex));
+}
+
+void print_edge_list(edge_node* edge_list, unsigned int edge_num){
+	for(int i = 0 ; i < edge_num ; i++){
+	    printf("Edge # %d, src: %u, dest: %u, weight: %u\n", i, edge_list[i].srcIndex, edge_list[i].destIndex, edge_list[i].weight);
+	}
+}
+
 uint parse_graph::parse(
 		std::ifstream& inFile,
 		std::vector<initial_vertex>& initGraph,

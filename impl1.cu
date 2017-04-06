@@ -75,7 +75,7 @@ __global__ void edge_process(const edge_node *L, const unsigned int edge_num, un
 	}
 }
 
-void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile, bool sortBySource){
 
 	unsigned int *initDist, *distance_cur, *distance_prev; 
 	int *anyChange;
@@ -88,6 +88,10 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstrea
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
 	pull_edges(*graph, edge_list, edge_num);
+
+	if(sortBySource){
+	    qsort(edge_list, edge_num, sizeof(edge_node), cmp_edge);
+	}
 
 	unsigned int *hostDistanceCur = new unsigned int[graph->size()];
 
@@ -136,7 +140,7 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstrea
 	free(edge_list);
 }
 
-void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile, bool sortBySource){
 
 	unsigned int *initDist, *distance; 
 	int *anyChange;
@@ -149,6 +153,10 @@ void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
 	pull_edges(*graph, edge_list, edge_num);
+
+	if(sortBySource){
+	    qsort(edge_list, edge_num, sizeof(edge_node), cmp_edge);
+	}
 
 	unsigned int *hostDistanceCur = new unsigned int[graph->size()];
 

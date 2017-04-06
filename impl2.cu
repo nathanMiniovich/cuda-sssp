@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <sys/time.h>
+#include <stdlib.h>
 
 #include "utils.h"
 #include "cuda_error_check.cuh"
@@ -166,7 +167,7 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
 }
 
 // OUTCORE
-void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile, bool sortBySource){
 
 	double t_filter, t_comp;
 	t_filter = 0;
@@ -186,6 +187,10 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
 	pull_edges(*graph, edge_list, edge_num);
+
+	if(sortBySource){
+	    qsort(edge_list, edge_num, sizeof(edge_node), cmp_edge);
+	}
 
 	unsigned int *hostDistanceCur = new unsigned int[graph->size()];
 
@@ -223,7 +228,6 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
 
 		if(!hostAnyChange[0]){
-		    printf("breaks\n");
 			break;
 		} else {
 			cudaMemset(anyChange, 0, (size_t)sizeof(int));
@@ -281,7 +285,7 @@ void impl2_outcore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 
 
 // INCORE
-void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile, bool sortBySource){
 
 	double t_filter, t_comp;
 	t_comp = 0;
@@ -301,6 +305,10 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
 	pull_distances(initDist, graph->size());
 	pull_edges(*graph, edge_list, edge_num);
+
+	if(sortBySource){
+	    qsort(edge_list, edge_num, sizeof(edge_node), cmp_edge);
+	}
 
 	cudaMalloc((void**)&distance, (size_t)sizeof(unsigned int)*(graph->size()));
 	cudaMalloc((void**)&anyChange, (size_t)sizeof(int));
@@ -368,7 +376,7 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 		}
 	}
 
-	printf("Computation Time: %f ms\nFiltering Time ms: %f\n", t_comp, t_filter);
+	printf("Computation Time: %f ms\nFiltering Time: %f ms\n", t_comp, t_filter);
 
 	unsigned int *hostDistance = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
 	cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
