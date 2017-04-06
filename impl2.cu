@@ -164,6 +164,70 @@ __global__ void getT(const edge_node *L, const unsigned int edge_num, unsigned i
 
 }
 
+// OUTCORE
+void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
+
+	unsigned int *initDist, *distance_cur, *distance_prev; 
+	int *anyChange;
+	int *hostAnyChange = (int*)malloc(sizeof(int));
+	edge_node *edge_list, *L;
+	unsigned int edge_num;
+	
+	edge_num = count_edges(*graph);
+	edge_list = (edge_node*) malloc(sizeof(edge_node)*edge_num);
+	initDist = (unsigned int*)calloc(graph->size(),sizeof(unsigned int));	
+	pull_distances(initDist, graph->size());
+	pull_edges(*graph, edge_list, edge_num);
+
+	unsigned int *hostDistanceCur = new unsigned int[graph->size()];
+
+	cudaMalloc((void**)&distance_cur, (size_t)sizeof(unsigned int)*(graph->size()));
+	cudaMalloc((void**)&distance_prev, (size_t)sizeof(unsigned int)*(graph->size()));
+	cudaMalloc((void**)&anyChange, (size_t)sizeof(int));
+	cudaMalloc((void**)&L, (size_t)sizeof(edge_node)*edge_num);
+
+	cudaMemcpy(distance_cur, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
+	cudaMemcpy(distance_prev, initDist, (size_t)sizeof(unsigned int)*(graph->size()), cudaMemcpyHostToDevice);
+	cudaMemcpy(L, edge_list, (size_t)sizeof(edge_node)*edge_num, cudaMemcpyHostToDevice);
+	
+	cudaMemset(anyChange, 0, (size_t)sizeof(int));
+
+	setTime();
+
+	for(int i=0; i < ((int) graph->size())-1; i++){
+		edge_process<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange);
+		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
+		if(!hostAnyChange[0]){
+			break;
+		} else {
+			cudaMemset(anyChange, 0, (size_t)sizeof(int));
+			cudaMemcpy(hostDistanceCur, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
+			cudaMemcpy(distance_cur, distance_prev, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToDevice);
+			cudaMemcpy(distance_prev, hostDistanceCur,(sizeof(unsigned int))*(graph->size()), cudaMemcpyHostToDevice);
+		}
+	}
+
+	cout << "Took " << getTime() << "ms.\n";
+
+	unsigned int *hostDistanceCurr = (unsigned int *)malloc((sizeof(unsigned int))*(graph->size()));	
+	cudaMemcpy(hostDistanceCurr, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
+
+	for(int i=0; i < graph->size(); i++){
+		outputFile << i << ":" << hostDistanceCurr[i] << endl; 
+	}
+
+	cudaFree(distance_cur);
+	cudaFree(distance_prev);
+	cudaFree(anyChange);
+	cudaFree(L);
+	
+	delete[] hostDistanceCur;
+	free(initDist);
+	free(edge_list);
+}
+
+
+// INCORE
 void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstream& outputFile){
 
 	unsigned int *initDist, *distance, *to_process_arr, *pred; 
