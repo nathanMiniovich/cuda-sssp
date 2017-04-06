@@ -69,8 +69,6 @@ void testCorrectness(edge_node *edges, const char* outputFileName, uint nVertice
 	while (getline(outputFile,line)) {
 		std::string curr = (d[i] < UINT_MAX) ? (std::to_string(i) + ":" + std::to_string(d[i])):(std::to_string(i) +":" + "4294967295");
 
-		// std::cout << std::to_string(line.compare(curr)) << std::endl;
-
 		if(line.compare(curr) != 0) {
 			incorrect++;
 			std::cout << "Correct: " << curr << "\tYours: " << line << std::endl;
@@ -208,7 +206,7 @@ int main( int argc, char** argv )
 			}
 		    	break;
 		case ProcessingType::Neighbor:
-		    neighborHandler(&parsedGraph, bsize, bcount);
+		    impl2_incore(&parsedGraph, bsize, bcount, outputFile);
 		    break;
 		default:
 		    own(&parsedGraph, bsize, bcount);
