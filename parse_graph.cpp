@@ -3,10 +3,57 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <iostream>
-
+#include <climits>
 #include "parse_graph.hpp"
 
 #define SSSP_INF 1073741824
+
+unsigned int count_edges(std::vector<initial_vertex>& graph){
+
+	unsigned int edge_num = 0;
+
+	for(int i = 0 ; i < graph.size() ; i++){
+	    edge_num += graph[i].nbrs.size();
+	}
+
+	return edge_num;
+}
+
+void pull_edges(std::vector<initial_vertex>& graph, edge_node* edge_list, unsigned int edge_num){
+
+	unsigned int k = 0;
+
+	for(int i = 0 ; i < graph.size() ; i++){
+	    for(int j = 0 ; j < graph[i].nbrs.size() ; j++, k++){
+		edge_list[k].srcIndex = graph[i].nbrs[j].srcIndex;
+		edge_list[k].destIndex = i;
+		edge_list[k].weight = graph[i].nbrs[j].edgeValue.weight;
+	    }
+	}
+
+	if( k != edge_num )
+	    printf("ERROR: Edge numbers don't match up\n");
+}
+
+void pull_distances(unsigned int* dist_arr, int size){
+
+	dist_arr[0] = 0;
+
+	for(int i = 1; i < size; i++){
+	    dist_arr[i] = UINT_MAX; 
+	}
+}
+
+int cmp_edge(const void *a, const void *b){
+	
+	return ( (int)(((edge_node *)a)->srcIndex) - (int)(((edge_node *)b)->srcIndex));
+}
+
+void print_edge_list(edge_node* edge_list, unsigned int edge_num){
+	for(int i = 0 ; i < edge_num ; i++){
+	    printf("Edge # %d, src: %u, dest: %u, weight: %u\n", i, edge_list[i].srcIndex, edge_list[i].destIndex, edge_list[i].weight);
+	}
+}
 
 uint parse_graph::parse(
 		std::ifstream& inFile,
