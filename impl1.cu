@@ -9,8 +9,28 @@
 #include <algorithm>
 
 #define INF 1073741824
+#define MAX_PER_BLOCK 1024
 
 using namespace std;
+
+// dest[i]: destination index of edge_list[i] (block size)
+// vals[i]: temporary distance TO dest_index[i]     (block size)
+// distance_cur: good 'ol distance array (size |V|)
+__device__ void segmented_scan(const int lane, const int *dest, unsigned int *vals, unsigned int *distance_cur){
+    if ( lane >= 1 && dest[threadIdx.x] == dest[threadIdx.x - 1] )
+	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 1]);
+    if ( lane >= 2 && dest[threadIdx.x] == dest[threadIdx.x - 2] )
+	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 2]);
+    if ( lane >= 4 && dest[threadIdx.x] == dest[threadIdx.x - 4] )
+	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 4]);
+    if ( lane >= 8 && dest[threadIdx.x] == dest[threadIdx.x - 8] )
+	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 8]);
+    if ( lane >= 16 && dest[threadIdx.x] == dest[threadIdx.x - 16] )
+	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 16]);
+
+    if ( lane == 31 || rows[threadIdx.x] != rows[threadIdx.x + 1] )
+	atomicMin(&distance_cur[dest_index[threadIdx.x]], vals[threadIdx.x]);
+}
 
 __global__ void edge_process_incore(const edge_node *L, const unsigned int edge_num, unsigned int *distance, int *anyChange){
 
