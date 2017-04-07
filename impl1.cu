@@ -57,17 +57,7 @@ __global__ void edge_process_usesmem(const edge_node *L, const unsigned int edge
 		u = L[i].srcIndex;
 		v = L[i].destIndex;
 		w = L[i].weight;
-		/*dests[threadIdx.x] = v;
-		if(distance_prev[u] == UINT_MAX){
-			vals[threadIdx.x] = UINT_MAX;
-			continue;
-		} else {
-			unsigned int temp = distance_cur[v];
-			vals[threadIdx.x] = distance_prev[u] + w; 
-			segmented_scan_min(thread_id % 32, dests, vals, distance_cur); 
-			if(distance_cur[v] < temp)
-			    anyChange[0] = 1;
-		}*/
+
 		dests[threadIdx.x] = v;
 		temp = distance_cur[v];
 		
@@ -76,6 +66,7 @@ __global__ void edge_process_usesmem(const edge_node *L, const unsigned int edge
 		} else {
 		    vals[threadIdx.x] = distance_prev[u] + w;
 		}
+
 		segmented_scan_min(thread_id % 32, dests, vals, distance_cur);
 		if(distance_cur[v] < temp)
 		    anyChange[0] = 1;
