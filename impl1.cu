@@ -126,7 +126,11 @@ void puller(vector<initial_vertex> * graph, int blockSize, int blockNum, ofstrea
 	cudaMemcpy(hostDistanceCur, distance_cur, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
 
 	for(int i=0; i < graph->size(); i++){
-		outputFile << i << ":" << hostDistanceCur[i] << endl; 
+		if(hostDistanceCur[i] == UINT_MAX){
+		    outputFile << i << ":" << "INF" << endl;
+		}else{
+		    outputFile << i << ":" << hostDistanceCur[i] << endl; 
+		}
 	}
 
 	cudaFree(distance_cur);
@@ -184,7 +188,11 @@ void puller_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, 
 	cudaMemcpy(hostDistance, distance, (sizeof(unsigned int))*(graph->size()), cudaMemcpyDeviceToHost);
 
 	for(int i=0; i < graph->size(); i++){
-		outputFile << i << ":" << hostDistance[i] << endl; 
+		if(hostDistance[i] == UINT_MAX){
+		    outputFile << i << ":" << "INF" << endl;
+		}else{
+		    outputFile << i << ":" << hostDistance[i] << endl; 
+		}
 	}
 
 	cudaFree(distance);
