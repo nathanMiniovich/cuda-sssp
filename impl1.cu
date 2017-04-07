@@ -13,23 +13,61 @@
 
 using namespace std;
 
-// dest[i]: destination index of edge_list[i] (block size)
-// vals[i]: temporary distance TO dest_index[i]     (block size)
+// dests[i]: destination index of edge_list[i] (block size)
+// vals[i]: temporary distance TO dests[i]     (block size)
 // distance_cur: good 'ol distance array (size |V|)
-__device__ void segmented_scan(const int lane, const int *dest, unsigned int *vals, unsigned int *distance_cur){
-    if ( lane >= 1 && dest[threadIdx.x] == dest[threadIdx.x - 1] )
+__device__ void segmented_scan_min(const int lane, const unsigned int *dests, unsigned int *vals, unsigned int *distance_cur){
+    if ( lane >= 1 && dests[threadIdx.x] == dests[threadIdx.x - 1] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 1]);
-    if ( lane >= 2 && dest[threadIdx.x] == dest[threadIdx.x - 2] )
+    if ( lane >= 2 && dests[threadIdx.x] == dests[threadIdx.x - 2] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 2]);
-    if ( lane >= 4 && dest[threadIdx.x] == dest[threadIdx.x - 4] )
+    if ( lane >= 4 && dests[threadIdx.x] == dests[threadIdx.x - 4] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 4]);
-    if ( lane >= 8 && dest[threadIdx.x] == dest[threadIdx.x - 8] )
+    if ( lane >= 8 && dests[threadIdx.x] == dests[threadIdx.x - 8] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 8]);
-    if ( lane >= 16 && dest[threadIdx.x] == dest[threadIdx.x - 16] )
+    if ( lane >= 16 && dests[threadIdx.x] == dests[threadIdx.x - 16] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 16]);
 
     if ( lane == 31 || rows[threadIdx.x] != rows[threadIdx.x + 1] )
-	atomicMin(&distance_cur[dest_index[threadIdx.x]], vals[threadIdx.x]);
+	atomicMin(&distance_cur[dests[threadIdx.x]], vals[threadIdx.x]);
+}
+
+__global__ void edge_process_usemem(const edge_node *L, const unsigned int edge_num, unsigned int *distance_prev, unsigned int *distance_cur, int *anyChange){
+	__shared__ unsigned int dests[MAX_PER_BLOCK];
+	__shared__ unsigned int vals[MAX_PER_BLOCK];
+
+	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
+	int thread_num = blockDim.x * gridDim.x;
+
+	int warp_id = thread_id/32;
+	int warp_num = thread_num % 32 ? thread_num/32 + 1 : thread_num/32;
+	int lane_id = thread_id % 32;
+
+	int load = (edge_num % warp_num == 0) ? edge_num/warp_num : edge_num/warp_num+1;
+	int beg = load * warp_id;
+	int end = min(edge_num, beg + load);
+	beg += lane_id;
+
+	unsigned int u;
+	unsigned int v;
+	unsigned int w;
+
+	for(int i = beg; i < end; i+=32){
+		u = L[i].srcIndex;
+		v = L[i].destIndex;
+		w = L[i].weight;
+		dests[threadIdx.x] = v;
+		if(distance_prev[u] == UINT_MAX){
+			vals[threadIdx.x] = UINT_MAX;
+			continue;
+		} else {
+			unsigned int temp = distance_cur[v];
+			vals[threadIdx.x] = distance_prev[u] + w; 
+			segmented_scan_min(thread_id % 32, dests, vals, distance_cur); 
+			if(distance_cur[v] < temp)
+			    anyChange[0] = 1;
+		}
+	}
 }
 
 __global__ void edge_process_incore(const edge_node *L, const unsigned int edge_num, unsigned int *distance, int *anyChange){
