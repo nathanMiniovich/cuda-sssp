@@ -129,7 +129,7 @@ void testCorrectness(edge_node *edges, const char* outputFileName, uint nVertice
 
 		if(line.compare(curr) != 0) {
 			incorrect++;
-			std::cout << "Correct: " << curr << "\tYours: " << line << std::endl;
+    //			std::cout << "Correct: " << curr << "\tYours: " << line << std::endl;
 		}
 		i++;
 	}
@@ -170,6 +170,7 @@ int main( int argc, char** argv )
 		bool nonDirectedGraph = false;		// By default, the graph is directed.
 		ProcessingType processingMethod = ProcessingType::Unknown;
 		syncMethod = OutOfCore;
+		smemMethod = UseNoSmem; 
 		bool sortBySource = false;
 
 
@@ -265,7 +266,10 @@ int main( int argc, char** argv )
 
 		switch(processingMethod){
 		case ProcessingType::Push:
-			if(syncMethod == OutOfCore){
+			if(smemMethod == UseSmem){
+				cout << "USE SMEM" << endl;
+				puller_usesmem(&parsedGraph, bsize, bcount, outputFile);
+			} else if(syncMethod == OutOfCore){
 				puller(&parsedGraph, bsize, bcount, outputFile, sortBySource);
 			} else if(syncMethod == InCore){
 				puller_incore(&parsedGraph, bsize, bcount, outputFile, sortBySource);
