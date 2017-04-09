@@ -10,6 +10,7 @@
 
 #define INF 1073741824
 #define MAX_PER_BLOCK 1024 
+#define FILL UINT_MAX - 777
 
 using namespace std;
 
@@ -33,7 +34,7 @@ __device__ void segmented_scan_min(const int lane, const unsigned int *dests, un
     if ( lane >= 16 && dests[threadIdx.x] == dests[threadIdx.x - 16] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 16]);
 
-    if ( lane == 31 || dests[threadIdx.x] != dests[threadIdx.x + 1] || dests[threadIdx.x + 1] == -1 )
+    if ( lane == 31 || dests[threadIdx.x] != dests[threadIdx.x + 1] || dests[threadIdx.x + 1] == FILL )
 	atomicMin(&distance_cur[dests[threadIdx.x]], vals[threadIdx.x]);
 }
 
@@ -41,7 +42,7 @@ __global__ void edge_process_usesmem(const edge_node *L, const unsigned int edge
 	__shared__ unsigned int dests[MAX_PER_BLOCK];
 	__shared__ unsigned int vals[MAX_PER_BLOCK];
 
-	dests[threadIdx.x] = -1;
+	dests[threadIdx.x] = FILL;
 
 	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	int thread_num = blockDim.x * gridDim.x;
@@ -79,7 +80,7 @@ __global__ void edge_process_usesmem(const edge_node *L, const unsigned int edge
 		if(distance_cur[v] < temp)
 		    anyChange[0] = 1;
 
-		dests[threadIdx.x] = -1;
+		dests[threadIdx.x] = FILL ;
 	}
 }
 
