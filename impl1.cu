@@ -9,7 +9,8 @@
 #include <algorithm>
 
 #define INF 1073741824
-#define MAX_PER_BLOCK 1024
+#define MAX_PER_BLOCK 1024 
+#define FILL UINT_MAX - 777
 
 using namespace std;
 
@@ -17,24 +18,31 @@ using namespace std;
 // vals[i]: temporary distance TO dests[i]     (block size)
 // distance_cur: good 'ol distance array (size |V|)
 __device__ void segmented_scan_min(const int lane, const unsigned int *dests, unsigned int *vals, unsigned int *distance_cur){
+
     if ( lane >= 1 && dests[threadIdx.x] == dests[threadIdx.x - 1] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 1]);
+
     if ( lane >= 2 && dests[threadIdx.x] == dests[threadIdx.x - 2] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 2]);
+
     if ( lane >= 4 && dests[threadIdx.x] == dests[threadIdx.x - 4] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 4]);
+
     if ( lane >= 8 && dests[threadIdx.x] == dests[threadIdx.x - 8] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 8]);
+
     if ( lane >= 16 && dests[threadIdx.x] == dests[threadIdx.x - 16] )
 	vals[threadIdx.x] = min(vals[threadIdx.x], vals[threadIdx.x - 16]);
 
-    if ( lane == 31 || dests[threadIdx.x] != dests[threadIdx.x + 1] )
+    if ( lane == 31 || dests[threadIdx.x] != dests[threadIdx.x + 1] || dests[threadIdx.x + 1] == FILL )
 	atomicMin(&distance_cur[dests[threadIdx.x]], vals[threadIdx.x]);
 }
 
 __global__ void edge_process_usesmem(const edge_node *L, const unsigned int edge_num, unsigned int *distance_prev, unsigned int *distance_cur, int *anyChange){
 	__shared__ unsigned int dests[MAX_PER_BLOCK];
 	__shared__ unsigned int vals[MAX_PER_BLOCK];
+
+	dests[threadIdx.x] = FILL;
 
 	int thread_id = blockDim.x * blockIdx.x + threadIdx.x;
 	int thread_num = blockDim.x * gridDim.x;
@@ -68,8 +76,11 @@ __global__ void edge_process_usesmem(const edge_node *L, const unsigned int edge
 		}
 
 		segmented_scan_min(thread_id % 32, dests, vals, distance_cur);
+
 		if(distance_cur[v] < temp)
 		    anyChange[0] = 1;
+
+		dests[threadIdx.x] = FILL ;
 	}
 }
 
@@ -167,7 +178,7 @@ void puller_usesmem(vector<initial_vertex> * graph, int blockSize, int blockNum,
 
 	setTime();
 
-	for(int i=0; i < ((int) graph->size())-1; i++){
+	for(int i=0; i < ((int) graph->size()) - 1; i++){
 		edge_process_usesmem<<<blockNum,blockSize>>>(L, edge_num, distance_prev, distance_cur, anyChange);
 		cudaMemcpy(hostAnyChange, anyChange, sizeof(int), cudaMemcpyDeviceToHost);
 		if(!hostAnyChange[0]){
