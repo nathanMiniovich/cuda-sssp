@@ -129,7 +129,7 @@ void testCorrectness(edge_node *edges, const char* outputFileName, uint nVertice
 
 		if(line.compare(curr) != 0) {
 			incorrect++;
-    			std::cout << "Correct: " << curr << "\tYours: " << line << std::endl;
+    //			std::cout << "Correct: " << curr << "\tYours: " << line << std::endl;
 		}
 		i++;
 	}

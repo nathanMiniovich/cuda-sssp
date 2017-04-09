@@ -314,6 +314,8 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 	pull_distances(initDist, graph->size());
 	pull_edges(*graph, edge_list, edge_num);
 
+	unsigned int *hostTPA = new unsigned int[warp_num];
+
 	if(sortBySource){
 	    qsort(edge_list, edge_num, sizeof(edge_node), cmp_edge);
 	}
@@ -368,9 +370,9 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 
 		    to_process_num = *temp;
 
-		    getY<<<1, warp_num>>>(to_process_arr);
-		    cudaDeviceSynchronize();
-
+		    cudaMemcpy(hostTPA, to_process_arr, sizeof(unsigned int)*warp_num, cudaMemcpyDeviceToHost);
+		    thrust::exclusive_scan(hostTPA, hostTPA + warp_num, hostTPA);
+		    cudaMemcpy(to_process_arr, hostTPA, sizeof(unsigned int)*warp_num, cudaMemcpyHostToDevice);
 		    cudaMemcpy(temp, to_process_arr + warp_num - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
 
 		    to_process_num += *temp;
@@ -402,6 +404,7 @@ void impl2_incore(vector<initial_vertex> * graph, int blockSize, int blockNum, o
 	cudaFree(L);
 	cudaFree(to_process_arr);
 		        
+	delete[] hostTPA;
 	delete[] hostDistance;
 	free(initDist);
 	free(edge_list);
